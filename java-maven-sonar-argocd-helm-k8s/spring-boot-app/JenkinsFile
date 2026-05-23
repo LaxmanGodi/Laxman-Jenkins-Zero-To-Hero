@@ -9,7 +9,7 @@ pipeline {
     stage('Checkout') {
       steps {
         sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Jenkins-Zero-To-Hero'
+        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero'
       }
     }
     stage('Build and Test') {
@@ -30,60 +30,59 @@ pipeline {
       }
     }
     stage('Build and Push Docker Image') {
-    environment {
+      environment {
         // Updated to your registered Docker Hub username: laxmangodi
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
         REGISTRY_CREDENTIALS = credentials('docker-cred')
-    }
-    steps {
-        script {
-            // Building the image using the local Dockerfile path
-            sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
-            
-            def dockerImage = docker.image("${DOCKER_IMAGE}")
-            
-            // Pushing to your personal Docker Hub repository
-            docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-                dockerImage.push()
-            }
-         }
       }
-    }
-    stage('Update Deployment File') {
-    environment {
-        GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-        GIT_USER_NAME = "LaxmanGodi"
-    }
-    steps {
-        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-            sh """
-                # 1. Fix the Git ownership error inside the Docker container
-                git config --global --add safe.directory '*'
+      steps {
+        script {
+          // Building the image using the local Dockerfile path
+          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
 
-                # 2. Configure identity
-                git config user.email "godilaxman470@gmail.com"
-                git config user.name "${GIT_USER_NAME}"
+          def dockerImage = docker.image("${DOCKER_IMAGE}")
 
-                # 3. GLOBAL IMAGE UPDATE:
-                # This finds any line starting with 'image:' and replaces it with YOUR image name and tag.
-                # We use '|' as a delimiter so the slashes in the URL don't confuse sed.
-                sed -i "s|image: .*|image: laxmangodi/ultimate-cicd:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-                # 4. Commit and Push back to GitHub
-                git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]"
-                
-                # Push using the token for authentication
-                git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
-            """
+          // Pushing to your personal Docker Hub repository
+          docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
+            dockerImage.push()
+          }
         }
       }
     }
-  stage('Cleanup') {
-    steps {
-            cleanWs() // Deletes the workspace before starting a new build
-
-          }
+    stage('Update Deployment File') {
+      environment {
+        GIT_REPO_NAME = "Laxman-Jenkins-Zero-To-Hero"
+        GIT_USER_NAME = "LaxmanGodi"
       }
+      steps {
+        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+          sh """
+            # 1. Fix the Git ownership error inside the Docker container
+            git config --global --add safe.directory '*'
+
+            # 2. Configure identity
+            git config user.email "godilaxman470@gmail.com"
+            git config user.name "${GIT_USER_NAME}"
+
+            # 3. GLOBAL IMAGE UPDATE:
+            # This finds any line starting with 'image:' and replaces it with YOUR image name and tag.
+            # We use '|' as a delimiter so the slashes in the URL don't confuse sed.
+            sed -i "s|image: .*|image: laxmangodi/ultimate-cicd:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
+            # 4. Commit and Push back to GitHub
+            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]"
+
+            # Push using the token for authentication
+            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+          """
+        }
+      }
+    }
+    stage('Cleanup') {
+      steps {
+        cleanWs() // Deletes the workspace before starting a new build
+      }
+    }
   }
 }
