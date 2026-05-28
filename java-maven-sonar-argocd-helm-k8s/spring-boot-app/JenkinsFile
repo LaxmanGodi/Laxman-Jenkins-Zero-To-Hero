@@ -19,6 +19,26 @@ pipeline {
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
       }
     }
+stage('Diagnostics') {
+    steps {
+        sh '''
+            echo "Checking Java..."
+            java -version
+            
+            echo "Checking Maven..."
+            mvn -version
+            
+            echo "Running effective-pom..."
+            # Capture the exit code of the maven command
+            mvn help:effective-pom > effective_pom.xml
+            echo "Maven exit code: $?"
+            
+            echo "Searching for sonar..."
+            grep -i sonar -n effective_pom.xml
+            echo "Grep exit code: $?"
+        '''
+    }
+}
     stage('Static Code Analysis') {
       environment {
         SONAR_URL = "http://172.17.0.1:9000"
