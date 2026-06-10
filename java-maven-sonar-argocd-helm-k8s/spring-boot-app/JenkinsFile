@@ -6,34 +6,21 @@ pipeline {
     }
   }
 
-  options {
+options {
     skipDefaultCheckout()
+    // This setting tells Jenkins to be less aggressive in tracking processes
+    // which often stops the "hang" during checkout
+    disableConcurrentBuilds()
   }
 
   stages {
-    stage('Cleanup Workspace') {
+    stage('Cleanup & Checkout') {
       steps {
         cleanWs()
+        // Use the native git tool directly
+        sh 'git clone https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero.git .'
       }
     }
-
-stage('Checkout') {
-      steps {
-        script {
-          // Use 'node' to shift execution back to the host machine for this specific stage
-          node {
-            checkout([$class: 'GitSCM', 
-              branches: [[name: '*/main']], 
-              userRemoteConfigs: [[url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero']]
-            ])
-            
-            // Fix permissions on the host BEFORE the container tries to access them
-            sh 'chmod -R 777 /var/lib/jenkins/workspace/ultimate-cicd'
-          }
-        }
-      }
-    }
-
     stage('Build and Test') {
       steps {
         script {
