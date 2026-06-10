@@ -1,8 +1,7 @@
-# You can change this base image to anything else
-# But make sure to use the correct version of Java
-FROM adoptopenjdk/openjdk11:alpine-jre
+# Updated to use Java 17 (Temurin), which is required for Spring Boot 3+
+FROM eclipse-temurin:17-jre-alpine
 
-# Simply the artifact path
+# The artifact path
 ARG artifact=target/spring-boot-web.jar
 
 WORKDIR /opt/app
@@ -11,7 +10,8 @@ WORKDIR /opt/app
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 
+# Copy the JAR file built in the previous stage
 COPY ${artifact} app.jar
 
-# This should not be changed
+# Run the application
 ENTRYPOINT ["java","-jar","app.jar"]
