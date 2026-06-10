@@ -18,8 +18,7 @@ pipeline {
     }
 
     stage('Checkout') {
-     sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero'
+    checkout scm
     }
 
    stage('Build and Test') {
