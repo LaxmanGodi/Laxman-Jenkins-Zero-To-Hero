@@ -5,6 +5,11 @@ pipeline {
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock' 
     }
   }
+  stage('Cleanup') {
+      steps {
+        cleanWs()
+      }
+    }
   stages {
     stage('Checkout') {
       steps {
@@ -77,10 +82,6 @@ pipeline {
         }
       }
     }
-    stage('Cleanup') {
-      steps {
-        cleanWs()
-      }
-    }
+
   }
 }
