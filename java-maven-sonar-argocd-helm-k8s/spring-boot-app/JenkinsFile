@@ -41,12 +41,12 @@ pipeline {
       }
     }
 
-   stage('Build Docker Image') {
-      environment { DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}" }
-      steps {
-              // Make sure the path to the Dockerfile is correct relative to your workspace
-              sh 'docker build -t ${DOCKER_IMAGE} -f java-maven-sonar-argocd-helm-k8s/spring-boot-app/Dockerfile .'
-          }
+      stage('Build Docker Image') {
+        environment { DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}" }
+        steps {
+          // Navigate to the folder first, then build using the local Dockerfile
+          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
+        }
       }
 
     stage('Trivy Security Scan') {
