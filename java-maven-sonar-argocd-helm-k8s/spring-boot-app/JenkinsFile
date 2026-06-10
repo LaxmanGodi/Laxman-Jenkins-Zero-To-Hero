@@ -17,14 +17,19 @@ pipeline {
       }
     }
 
-   stage('Checkout') {
+stage('Checkout') {
       steps {
         script {
-          // Use 'dir' to ensure we are in the right workspace, 
-          // and execute checkout outside the docker container context.
-          checkout scm
-          // Fix permissions on host so the Docker agent can read/write
-          sh 'chmod -R 777 /var/lib/jenkins/workspace/ultimate-cicd@tmp'
+          // Use 'node' to shift execution back to the host machine for this specific stage
+          node {
+            checkout([$class: 'GitSCM', 
+              branches: [[name: '*/main']], 
+              userRemoteConfigs: [[url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero']]
+            ])
+            
+            // Fix permissions on the host BEFORE the container tries to access them
+            sh 'chmod -R 777 /var/lib/jenkins/workspace/ultimate-cicd'
+          }
         }
       }
     }
