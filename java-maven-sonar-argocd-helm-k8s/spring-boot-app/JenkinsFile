@@ -5,16 +5,21 @@ pipeline {
       args '--user root -v /var/run/docker.sock:/var/run/docker.sock' 
     }
   }
+options {
+    skipDefaultCheckout(true)
+  }
   stages {
 
-    stage('Cleanup') {
+  stages {
+    stage('Cleanup Before Checkout') {
       steps {
         cleanWs()
       }
     }
+
     stage('Checkout') {
       steps {
-        sh 'echo passed'
+        checkout scm
       }
     }
     stage('Build and Test') {
@@ -80,9 +85,13 @@ pipeline {
             git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]"
             git push https://${GITHUB_TOKEN}@github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero.git HEAD:main
           """
+            }
+          }
         }
       }
+    post {
+    always {
+      cleanWs()
     }
-
   }
 }
