@@ -2,21 +2,31 @@ pipeline {
   agent {
     docker {
       image 'laxmangodi/maven-laxman-docker-agent:v1'
+      // -u root ensures we have permission to manage the Docker socket and files
       args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
 
+  // 1. CRITICAL: Stop Jenkins from running its own checkout before your cleanup
+  options {
+    skipDefaultCheckout()
+  }
+
   stages {
+    // 2. Now this truly runs on a fresh directory
     stage('Cleanup Workspace') {
       steps {
         cleanWs()
       }
     }
+    
+    // 3. Manually trigger the checkout after the workspace is empty
     stage('Checkout') {
       steps {
         checkout scm
       }
     }
+
     stage('Build and Test') {
       steps {
         sh '''
@@ -25,6 +35,7 @@ pipeline {
         '''
       }
     }
+
     stage('Static Code Analysis') {
       environment {
         SONAR_URL = "http://172.17.0.1:9000"
@@ -35,6 +46,7 @@ pipeline {
         }
       }
     }
+
     stage('Build Docker Image') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
@@ -43,6 +55,7 @@ pipeline {
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
       }
     }
+
     stage('Trivy Security Scan') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
@@ -56,6 +69,7 @@ pipeline {
         """
       }
     }
+
     stage('Push Docker Image') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
@@ -68,6 +82,7 @@ pipeline {
         }
       }
     }
+
     stage('Update Deployment File') {
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
@@ -85,10 +100,6 @@ pipeline {
     }
   }
 
-  post {
-    always {
-      // Clean up the workspace to prevent permission issues for the NEXT build
-      cleanWs()
-    }
-  }
+  // To fix the "MissingContextVariableException", we remove the post block
+  // because the workspace is already being cleaned at the start of every run.
 }
