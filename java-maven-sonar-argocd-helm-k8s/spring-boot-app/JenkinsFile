@@ -17,12 +17,13 @@ pipeline {
       }
     }
 
-    stage('Checkout') {
+   stage('Checkout') {
       steps {
-        // Run on host to resolve Git/Container environment conflicts
-        node {
+        script {
+          // Use 'dir' to ensure we are in the right workspace, 
+          // and execute checkout outside the docker container context.
           checkout scm
-          // Fix permissions on host so the Docker agent can read/write the workspace
+          // Fix permissions on host so the Docker agent can read/write
           sh 'chmod -R 777 /var/lib/jenkins/workspace/ultimate-cicd@tmp'
         }
       }
