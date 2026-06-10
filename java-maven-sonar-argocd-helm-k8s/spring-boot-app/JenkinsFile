@@ -50,19 +50,27 @@ pipeline {
       }
 
     stage('Trivy Security Scan') {
-      environment {
-        DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
-      }
-      steps {
-        sh """
-          mkdir -p ${WORKSPACE}/.trivy_cache
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
-          aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE}
-        """
-      }
-    }
-
+  environment {
+    DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
+  }
+  steps {
+    sh """
+      # Ensure the cache directory exists
+      mkdir -p ${WORKSPACE}/.trivy_cache
+      
+      # Run Trivy. We use --skip-update to prevent the database download if it exists,
+      # or you can run a separate 'trivy image --download-db-only' step if needed.
+      docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
+        aquasec/trivy:latest image \
+        --skip-update \
+        --severity HIGH,CRITICAL \
+        --exit-code 1 \
+        ${DOCKER_IMAGE}
+    """
+  }
+}
     stage('Push Docker Image') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
