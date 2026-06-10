@@ -49,28 +49,16 @@ pipeline {
         }
       }
 
-    stage('Trivy Security Scan') {
-  environment {
-    DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
-  }
-  steps {
-    sh """
-      mkdir -p ${WORKSPACE}/.trivy_cache
-      
-      # Check if the DB file exists (trivy.db is the core file)
-      if [ -f "${WORKSPACE}/.trivy_cache/db/trivy.db" ]; then
-        echo "Database exists, skipping download..."
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
-          aquasec/trivy:latest image --skip-db-update --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE}
-      else
-        echo "Database not found, downloading now..."
-        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-          -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
-          aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE}
-      fi
-    """
-  }
+   stage('Trivy Security Scan') {
+    environment {
+        DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
+    }
+    steps {
+        sh """
+            mkdir -p ${WORKSPACE}/.trivy_cache
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v ${WORKSPACE}/.trivy_cache:/root/.cache/ aquasec/trivy:latest image --timeout 10m --severity HIGH,CRITICAL --exit-code 1 ${DOCKER_IMAGE}
+        """
+    }
 }
     stage('Push Docker Image') {
       environment {
