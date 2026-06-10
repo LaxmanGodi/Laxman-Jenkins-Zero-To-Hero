@@ -7,6 +7,10 @@ ARG artifact=target/spring-boot-web.jar
 
 WORKDIR /opt/app
 
+# It is good practice to add a non-root user for security
+RUN addgroup -S spring && adduser -S spring -G spring
+USER spring:spring
+
 COPY ${artifact} app.jar
 
 # This should not be changed
