@@ -1,4 +1,10 @@
 pipeline {
+  environment {
+    // These prevent Jenkins from killing processes and help debug "exit code -2"
+    JENKINS_NODE_COOKIE = 'dontKillMe'
+    DURABLE_TASK_DEBUG = 'true'
+  }
+
   agent {
     docker {
       image 'laxmangodi/maven-laxman-docker-agent:v1'
@@ -25,13 +31,16 @@ pipeline {
 
     stage('Build and Test') {
       steps {
-        sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
+        sh '''#!/bin/bash
+          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+          mvn clean package -B
+        '''
       }
     }
 
     stage('Diagnostics') {
       steps {
-        sh '''
+        sh '''#!/bin/bash
           java -version
           mvn -version
           mvn help:effective-pom || true
@@ -93,7 +102,7 @@ pipeline {
       }
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          sh """
+          sh """#!/bin/bash
             git config --global --add safe.directory '*'
             git config user.email "godilaxman470@gmail.com"
             git config user.name "${GIT_USER_NAME}"
