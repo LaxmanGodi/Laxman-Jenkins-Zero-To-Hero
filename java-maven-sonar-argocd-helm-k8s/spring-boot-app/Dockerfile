@@ -1,4 +1,4 @@
-# Updated to use Java 17 (Temurin), which is required for Spring Boot 3+
+# Use Java 17 (Temurin), required for Spring Boot 3+
 FROM eclipse-temurin:17-jre-alpine
 
 # The artifact path
@@ -6,12 +6,14 @@ ARG artifact=target/spring-boot-web.jar
 
 WORKDIR /opt/app
 
-# It is good practice to add a non-root user for security
+# Create non-root user
 RUN addgroup -S spring && adduser -S spring -G spring
+
+# Copy the JAR file and explicitly assign ownership to the 'spring' user
+# This prevents 'Permission Denied' errors when the container starts
+COPY --chown=spring:spring ${artifact} app.jar
+
+# Run the application as the non-root user
 USER spring:spring
 
-# Copy the JAR file built in the previous stage
-COPY ${artifact} app.jar
-
-# Run the application
 ENTRYPOINT ["java","-jar","app.jar"]
