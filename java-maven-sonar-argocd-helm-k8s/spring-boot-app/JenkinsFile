@@ -26,8 +26,13 @@ pipeline {
   stage('Build and Test') {
       steps {
         sh 'ls -ltr'
-        // build the project and create a JAR file
-        sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
+        // We use -B (Batch Mode) to prevent interactive prompts
+        // We set the logging level of the transfer listener to WARN to keep logs clean
+        // We add -DskipTests=false (explicitly) or -DskipTests if you want to speed it up temporarily for debugging
+        sh '''
+          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+          mvn clean package -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+        '''
       }
     }
     stage('Static Code Analysis') {
