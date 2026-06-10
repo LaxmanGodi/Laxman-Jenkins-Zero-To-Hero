@@ -2,38 +2,43 @@ pipeline {
   agent {
     docker {
       image 'laxmangodi/maven-laxman-docker-agent:v1'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
+
+  options {
+    skipDefaultCheckout()
+  }
+
   stages {
-    stage('Checkout') {
+    stage('Cleanup Workspace') {
       steps {
-        sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero'
+        cleanWs()
       }
     }
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
     stage('Build and Test') {
       steps {
-        sh 'ls -ltr'
-        // build the project and create a JAR file
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
       }
     }
-  stage('Diagnostics') {
-    steps {
+
+    stage('Diagnostics') {
+      steps {
         sh '''
-            echo "Checking Java..."
-            java -version
-            
-            echo "Checking Maven..."
-            mvn -version
-            
-            echo "Running effective-pom (ignoring failure)..."
-            # Using '|| true' ensures that even if Maven crashes, the pipeline continues
-            mvn help:effective-pom || true
+          java -version
+          mvn -version
+          mvn help:effective-pom || true
         '''
-        }
       }
+    }
+
     stage('Static Code Analysis') {
       environment {
         SONAR_URL = "http://172.17.0.1:9000"
@@ -60,8 +65,6 @@ pipeline {
       }
       steps {
         sh """
-          echo "Scanning image: ${DOCKER_IMAGE}"
-          echo "Cache directory: ${WORKSPACE}/.trivy_cache"
           mkdir -p ${WORKSPACE}/.trivy_cache
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
@@ -91,31 +94,15 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
           sh """
-            # 1. Fix the Git ownership error inside the Docker container
             git config --global --add safe.directory '*'
-
-            # 2. Configure identity
             git config user.email "godilaxman470@gmail.com"
             git config user.name "${GIT_USER_NAME}"
-
-            # 3. GLOBAL IMAGE UPDATE:
-            # This finds any line starting with 'image:' and replaces it with YOUR image name and tag.
-            # We use '|' as a delimiter so the slashes in the URL don't confuse sed.
             sed -i "s|image: .*|image: laxmangodi/ultimate-cicd:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-            # 4. Commit and Push back to GitHub
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]"
-
-            # Push using the token for authentication
+            git add .
+            git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]" || true
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
           """
         }
-      }
-    }
-    stage('Cleanup') {
-      steps {
-        cleanWs() // Deletes the workspace before starting a new build
       }
     }
   }
