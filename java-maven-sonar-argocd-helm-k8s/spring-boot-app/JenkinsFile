@@ -26,15 +26,25 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
+          // Force the permissions open immediately after checkout
+        sh 'chmod -R 777 /var/lib/jenkins/workspace/ultimate-cicd@tmp'
       }
     }
 
-    stage('Build and Test') {
+   stage('Build and Test') {
       steps {
-        sh '''#!/bin/bash
-          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-          mvn clean package -B
-        '''
+        script {
+          sh '''#!/bin/bash
+            set -x
+            # Verify the environment for troubleshooting
+            echo "Current Directory: $(pwd)"
+            echo "User: $(whoami)"
+            
+            # The 'exec' command replaces the shell, ensuring Jenkins 
+            # monitors the Maven process directly.
+            exec mvn clean package -B -f java-maven-sonar-argocd-helm-k8s/spring-boot-app/pom.xml
+          '''
+        }
       }
     }
 
