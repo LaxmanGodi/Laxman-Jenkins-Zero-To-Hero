@@ -2,13 +2,11 @@ pipeline {
   agent {
     docker {
       image 'laxmangodi/maven-laxman-docker-agent:v1'
-      // -u root ensures we have permissions to access the Docker socket and manage files
-      args '-u root -v /var/run/docker.sock:/var/run/docker.sock' 
+      args '-u root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
 
   stages {
-    // Stage 1: Clean everything before any other operations
     stage('Cleanup Workspace') {
       steps {
         cleanWs()
@@ -19,18 +17,14 @@ pipeline {
         checkout scm
       }
     }
-
     stage('Build and Test') {
       steps {
-        // -B: Batch mode (prevents hanging on interactive prompts)
-        // -Dorg.slf4j...: Silences excessive download logs that clog the Jenkins console
         sh '''
           cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
           mvn clean package -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
         '''
       }
     }
-
     stage('Static Code Analysis') {
       environment {
         SONAR_URL = "http://172.17.0.1:9000"
@@ -41,7 +35,6 @@ pipeline {
         }
       }
     }
-
     stage('Build Docker Image') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
@@ -50,15 +43,12 @@ pipeline {
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
       }
     }
-
     stage('Trivy Security Scan') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
       }
       steps {
         sh """
-          echo "Scanning image: ${DOCKER_IMAGE}"
-          echo "Cache directory: ${WORKSPACE}/.trivy_cache"
           mkdir -p ${WORKSPACE}/.trivy_cache
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
           -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
@@ -66,7 +56,6 @@ pipeline {
         """
       }
     }
-
     stage('Push Docker Image') {
       environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
@@ -79,7 +68,6 @@ pipeline {
         }
       }
     }
-
     stage('Update Deployment File') {
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
@@ -99,7 +87,8 @@ pipeline {
 
   post {
     always {
-      cleanWs() // Final cleanup to keep your storage healthy
+      // Clean up the workspace to prevent permission issues for the NEXT build
+      cleanWs()
     }
   }
 }
