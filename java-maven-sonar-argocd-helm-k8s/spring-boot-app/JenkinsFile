@@ -49,7 +49,7 @@ pipeline {
         }
       }
 
-    sstage('Trivy Security Scan') {
+    stage('Trivy Security Scan') {
   environment {
     DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
   }
