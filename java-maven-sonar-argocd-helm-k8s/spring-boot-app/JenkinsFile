@@ -1,10 +1,4 @@
 pipeline {
-  environment {
-    // These prevent Jenkins from killing processes and help debug "exit code -2"
-    JENKINS_NODE_COOKIE = 'dontKillMe'
-    DURABLE_TASK_DEBUG = 'true'
-  }
-
   agent {
     docker {
       image 'laxmangodi/maven-laxman-docker-agent:v1'
@@ -24,11 +18,8 @@ pipeline {
     }
 
     stage('Checkout') {
-      steps {
-        checkout scm
-          // Force the permissions open immediately after checkout
-        sh 'chmod -R 777 /var/lib/jenkins/workspace/ultimate-cicd@tmp'
-      }
+     sh 'echo passed'
+        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero'
     }
 
    stage('Build and Test') {
