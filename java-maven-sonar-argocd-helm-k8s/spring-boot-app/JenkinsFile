@@ -2,34 +2,21 @@ pipeline {
   agent {
     docker {
       image 'laxmangodi/maven-laxman-docker-agent:v1'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
     }
   }
-
-options {
-    skipDefaultCheckout()
-    // This setting tells Jenkins to be less aggressive in tracking processes
-    // which often stops the "hang" during checkout
-    disableConcurrentBuilds()
-  }
-
   stages {
-    stage('Cleanup & Checkout') {
+    stage('Checkout') {
       steps {
-        cleanWs()
-        // Use the native git tool directly
-        sh 'git clone https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero.git .'
+        sh 'echo passed'
+        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero'
       }
     }
     stage('Build and Test') {
       steps {
-        script {
-          sh '''#!/bin/bash
-            set -x
-            # The 'exec' command ensures Jenkins monitors the Maven process directly
-            exec mvn clean package -B -f java-maven-sonar-argocd-helm-k8s/spring-boot-app/pom.xml
-          '''
-        }
+        sh 'ls -ltr'
+        // build the project and create a JAR file
+        sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
       }
     }
 
@@ -107,6 +94,11 @@ options {
             git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
           """
         }
+      }
+    }
+    stage('Cleanup') {
+      steps {
+        cleanWs() // Deletes the workspace before starting a new build
       }
     }
   }
