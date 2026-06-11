@@ -9,7 +9,7 @@ pipeline {
     stage('Checkout') {
       steps {
         sh 'echo passed'
-        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Jenkins-Zero-To-Hero'
+        //git branch: 'main', url: 'https://github.com/LaxmanGodi/Laxman-Jenkins-Zero-To-Hero'
       }
     }
     stage('Build and Test') {
@@ -19,6 +19,17 @@ pipeline {
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
       }
     }
+
+    stage('Diagnostics') {
+      steps {
+        sh '''#!/bin/bash
+          java -version
+          mvn -version
+          mvn help:effective-pom || true
+        '''
+      }
+    }
+
     stage('Static Code Analysis') {
       environment {
         SONAR_URL = "http://172.17.0.1:9000"
@@ -29,61 +40,83 @@ pipeline {
         }
       }
     }
-    stage('Build and Push Docker Image') {
-    environment {
-        // Updated to your registered Docker Hub username: laxmangodi
-        DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-    }
-    steps {
-        script {
-            // Building the image using the local Dockerfile path
-            sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
-            
-            def dockerImage = docker.image("${DOCKER_IMAGE}")
-            
-            // Pushing to your personal Docker Hub repository
-            docker.withRegistry('https://index.docker.io/v1/', "docker-cred") {
-                dockerImage.push()
-            }
-         }
+
+      stage('Build Docker Image') {
+        environment { DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}" }
+        steps {
+          // Navigate to the folder first, then build using the local Dockerfile
+          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
+        }
       }
-    }
-    stage('Update Deployment File') {
+
+stage('Trivy Security Scan') {
     environment {
-        GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-        GIT_USER_NAME = "LaxmanGodi"
+        DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
+        TRIVY_CACHE = "${WORKSPACE}/.trivy_cache"
     }
     steps {
-        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-            sh """
-                # 1. Fix the Git ownership error inside the Docker container
-                git config --global --add safe.directory '*'
+        sh """
+            mkdir -p ${TRIVY_CACHE}
+            
+            # 1. Check if the database exists (this file is created after a successful download)
+            if [ ! -f "${TRIVY_CACHE}/db/trivy.db" ]; then
+                echo "Database not found. Performing initial download..."
+                docker run --rm -v ${TRIVY_CACHE}:/root/.cache/ aquasec/trivy:latest image --download-db-only
+            fi
 
-                # 2. Configure identity
-                git config user.email "godilaxman470@gmail.com"
-                git config user.name "${GIT_USER_NAME}"
-
-                # 3. GLOBAL IMAGE UPDATE:
-                # This finds any line starting with 'image:' and replaces it with YOUR image name and tag.
-                # We use '|' as a delimiter so the slashes in the URL don't confuse sed.
-                sed -i "s|image: .*|image: laxmangodi/ultimate-cicd:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-                # 4. Commit and Push back to GitHub
-                git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]"
-                
-                # Push using the token for authentication
-                git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
-            """
+            # 2. Run the scan
+            # We remove --skip-db-update because the 'if' block above guarantees the DB exists.
+            # We keep --parallel 1 and --scanners vuln for stability.
+            echo "Starting scan for ${DOCKER_IMAGE}..."
+            docker run --rm \
+                -v ${TRIVY_CACHE}:/root/.cache/ \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                aquasec/trivy:latest image \
+                --timeout 20m \
+                --parallel 1 \
+                --scanners vuln \
+                --severity HIGH,CRITICAL \
+                --exit-code 1 \
+                ${DOCKER_IMAGE}
+        """
+    }
+}
+    stage('Push Docker Image') {
+      environment {
+        DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
+      }
+      steps {
+        script {
+          docker.withRegistry('https://index.docker.io/v1/', 'docker-cred') {
+            docker.image("${DOCKER_IMAGE}").push()
+          }
         }
       }
     }
-  stage('Cleanup') {
-    steps {
-            cleanWs() // Deletes the workspace before starting a new build
 
-          }
+    stage('Update Deployment File') {
+      environment {
+        GIT_REPO_NAME = "Laxman-Jenkins-Zero-To-Hero"
+        GIT_USER_NAME = "LaxmanGodi"
       }
+      steps {
+        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+          sh """#!/bin/bash
+            git config --global --add safe.directory '*'
+            git config user.email "godilaxman470@gmail.com"
+            git config user.name "${GIT_USER_NAME}"
+            sed -i "s|image: .*|image: laxmangodi/ultimate-cicd:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            git add .
+            git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]" || true
+            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+          """
+        }
+      }
+    }
+    stage('Cleanup') {
+      steps {
+        cleanWs() // Deletes the workspace before starting a new build
+      }
+    }
   }
 }
