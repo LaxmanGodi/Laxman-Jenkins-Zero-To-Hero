@@ -1,0 +1,9 @@
+# Ignore Trivy cache
+.trivy_cache/
+
+# Ignore Maven target directory
+target/
+
+# Ignore logs and temporary files
+*.log
+tmp/
