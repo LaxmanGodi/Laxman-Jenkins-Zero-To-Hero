@@ -102,20 +102,29 @@ stage('Trivy Security Scan') {
  steps {
     withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
         sh """#!/bin/bash
+        # 1. Ensure we are in the root workspace
+        cd "${WORKSPACE}"
+
+        # 2. Fix Git safety/ownership issues
+        git config --global --add safe.directory "${WORKSPACE}"
+
+        # 3. Configure identity
         git config user.email "godilaxman470@gmail.com"
         git config user.name "${GIT_USER_NAME}"
-        
-        # 1. Update the image tag
+
+        # 4. Update the manifest (use a temporary file to avoid corruption)
         sed -i "s|image: .*|image: laxmangodi/ultimate-cicd:${BUILD_NUMBER}|g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-        
-        # 2. Add ONLY the deployment file, ignore everything else
+
+        # 5. Add, Commit, and Push
+        # We check for changes first to avoid "nothing to commit" errors
         git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
         
-        # 3. Commit only if there are changes
-        git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]" || echo "No changes to commit"
-        
-        # 4. Push safely
-        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+        if ! git diff --cached --quiet; then
+            git commit -m "Update deployment image to version ${BUILD_NUMBER} [skip ci]"
+            git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+        else
+            echo "No changes detected in deployment manifest. Skipping commit."
+        fi
         """
     }
 }
