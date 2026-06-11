@@ -52,30 +52,29 @@ pipeline {
 stage('Trivy Security Scan') {
     environment {
         DOCKER_IMAGE = "laxmangodi/ultimate-cicd:${BUILD_NUMBER}"
-        // Trivy uses /tmp for extracting layers. Ensure this directory is large enough 
-        // or redirect it to a path with more space if this still fails.
-        TMPDIR = "${WORKSPACE}/tmp"
+        TRIVY_CACHE = "${WORKSPACE}/.trivy_cache"
     }
     steps {
         sh """
-            mkdir -p ${WORKSPACE}/.trivy_cache ${WORKSPACE}/tmp
+            mkdir -p ${TRIVY_CACHE}
             
-            # 1. Ensure DB is already there (downloaded in previous successful runs)
-            # 2. --timeout 20m: Increases total scan time to 20 minutes
-            # 3. --parallel 1: Reduces CPU/Disk thrashing by scanning layers sequentially
-            # 4. --scanners vuln: Limits scan to vulnerabilities only (skips secrets/misconfig)
-            
+            # 1. Check if the database exists (this file is created after a successful download)
+            if [ ! -f "${TRIVY_CACHE}/db/trivy.db" ]; then
+                echo "Database not found. Performing initial download..."
+                docker run --rm -v ${TRIVY_CACHE}:/root/.cache/ aquasec/trivy:latest image --download-db-only
+            fi
+
+            # 2. Run the scan
+            # We remove --skip-db-update because the 'if' block above guarantees the DB exists.
+            # We keep --parallel 1 and --scanners vuln for stability.
             echo "Starting scan for ${DOCKER_IMAGE}..."
             docker run --rm \
-                -e TMPDIR=/tmp \
-                -v ${WORKSPACE}/.trivy_cache:/root/.cache/ \
+                -v ${TRIVY_CACHE}:/root/.cache/ \
                 -v /var/run/docker.sock:/var/run/docker.sock \
                 aquasec/trivy:latest image \
                 --timeout 20m \
                 --parallel 1 \
                 --scanners vuln \
-                --skip-db-update \
-                --skip-java-db-update \
                 --severity HIGH,CRITICAL \
                 --exit-code 1 \
                 ${DOCKER_IMAGE}
